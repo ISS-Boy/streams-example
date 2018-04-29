@@ -1,0 +1,17 @@
+{
+    "namespace": "org.mhealth.open.data.avro",
+    "name": "MPattern",
+    "type": "record",
+    "fields": [
+        {"name": "user_id", "type": ["string","null"] },
+        {"name": "timestamp", "type": "long"},
+        {"name": "matchPattern" ,"type": {
+            "type":"map","values":{"type":"record", "name": "patternResult", "fields":[
+                    {"name": "patternName", "type": "string"},
+                    {"name": "result", "type": "int"}
+                ]}
+            }
+        }
+    ]
+}
+
