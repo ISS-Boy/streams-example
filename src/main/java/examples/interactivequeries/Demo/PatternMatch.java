@@ -37,14 +37,14 @@ public class PatternMatch {
      */
     private List<SymbolicPattern> symbolicPatterns;
     private String patternid;               //模式有可能是中文，所以改成模式的编号
-    private SAXAnalysisWindow window;
+    private SAXAnalysisWindow windows;
 
 
     //alt+insert是构造器和get、set方法的快捷键，点第一个然后按shift点最后一个是全选
     public PatternMatch(List<SymbolicPattern> symbolicPatterns, String patternid, SAXAnalysisWindow window) {
         this.symbolicPatterns = symbolicPatterns;
         this.patternid = patternid;
-        this.window = window;
+        this.windows = window;
     }
     public List<SymbolicPattern> getSymbolicPatterns() {
         return symbolicPatterns;
@@ -58,11 +58,11 @@ public class PatternMatch {
     public void setPatternid(String patternid) {
         this.patternid = patternid;
     }
-    public SAXAnalysisWindow getWindow() {
-        return window;
+    public SAXAnalysisWindow getWindows() {
+        return windows;
     }
-    public void setWindow(SAXAnalysisWindow window) {
-        this.window = window;
+    public void setWindows(SAXAnalysisWindow windows) {
+        this.windows = windows;
     }
 
 
@@ -218,78 +218,75 @@ public class PatternMatch {
  *  中间的Map的key-value是<measure，存储数据的集合>，list的长度就是length
  */
         Map<String, List<Map<String, List<Float>>>> map = new HashMap<>();
-        for(String user : users){
 
-        }
 
         Set<String> set = symbolicPatterns.get(0).getMeasures().keySet();
         List<String> mList = new ArrayList<>(set);      //维度的集合
 
-        KStream<String, MPattern> kStream1  = kStream
+        KStream<String, MPattern> kStream1 = kStream
                 .map((key, value) -> {
                     MPattern mPattern = new MPattern();
-                    for (int i = 0; i < map.get(key).size(); i++) {                     //模式的种数
-                        for (int j = 0; j < map.get(key).get(i).size(); j++) {          //measures的种数
-                            List<Float> list = map.get(key).get(i).get(mList.get(j));
-                            double[] tsRed = new double[length];
-                            while (list.size() < length - 1) {
-                                list.add(value.getMeasures().get(mList.get(j)).getValue());
-                            }
-                            if (list.size() >= length) {
-                                list.remove(0);
-                                list.add(value.getMeasures().get(mList.get(j)).getValue());
-                            } else
-                                list.add(value.getMeasures().get(mList.get(j)).getValue());
+                    for (String user : users) {              //用户数
+                        for (int patternId = 0; patternId < symbolicPatterns.size(); patternId++) {    //模式数
+                            for (String measureName : mList) {          //measures的种数
+                                List<Float> list = new ArrayList<>();
+                                double[] tsRed = new double[length];
+                                if (value.getUserId().equals(user)) {
+                                    while (list.size() < length - 1) {
+                                        list.add(value.getMeasures().get(measureName).getValue());
+                                    }
+                                    if (list.size() >= length) {
+                                        list.remove(0);
+                                        list.add(value.getMeasures().get(measureName).getValue());
+                                    } else
+                                        list.add(value.getMeasures().get(measureName).getValue());
 
-                            for (int m = 0; m < length; m++)
-                                tsRed[m] = list.get(m);
-
-
-                            //将一维序列通过SAX算法转换，返回SAX记录值
-                            SAXAnalysisWindow window = new SAXAnalysisWindow(64, 8, 4);
-                            int slidingWindowSize = window.getnLength();
-                            int paaSize = window.getwSegment();
-                            int alphabetSize = window.getaAlphabet();
-                            //NONE 是所有，没有省略
-                            NumerosityReductionStrategy nrStrategy = NumerosityReductionStrategy.NONE;
-                            int nThreshold = 1;
-
-                            NormalAlphabet na = new NormalAlphabet();
-                            SAXProcessor sp = new SAXProcessor();
-
-                            SAXRecords res = null;
-                            try {
-                                res = sp.ts2saxViaWindow(tsRed, slidingWindowSize, paaSize,
-                                        na.getCuts(alphabetSize), nrStrategy, nThreshold);
-                            } catch (SAXException e) {
-                                e.printStackTrace();
-                            }
-
-                            String alphabet = new String();
-                            Set<Integer> index = res.getIndexes();
-                            for (Integer idx : index)
-                                alphabet += String.valueOf(res.getByIndex(idx).getPayload());
-                            String s = "bbbbccccbbbbccccbbbbcccc";
-                            boolean match = false;
-                            try {
-                                match = patternMatch(alphabet, s, alphabetSize);
-                            } catch (SAXException e) {
-                                e.printStackTrace();
-                            }
+                                    for (int m = 0; m < length; m++)
+                                        tsRed[m] = list.get(m);
 
 
-                            mPattern.put("user_id", value.getUserId());
-                            mPattern.put("timestamp", value.getTimestamp());
+                                    //将一维序列通过SAX算法转换，返回SAX记录值
+                                    //NONE 是所有，没有省略
+                                    NumerosityReductionStrategy nrStrategy = NumerosityReductionStrategy.NONE;
+                                    int nThreshold = 1;
 
-                            patternResult result = new patternResult();
+                                    NormalAlphabet na = new NormalAlphabet();
+                                    SAXProcessor sp = new SAXProcessor();
 
-                            if (match == true) {
-                                list.removeAll(list);
-                                result.put("i",0);
-                                mPattern.put("measures",result);
-                            } else {
-                                result.put("i", 1);
-                                mPattern.put("measures",result);
+                                    SAXRecords res = null;
+                                    try {
+                                        res = sp.ts2saxViaWindow(tsRed, windows.getnLength(), windows.getwSegment(),
+                                                na.getCuts(windows.getaAlphabet()), nrStrategy, nThreshold);
+                                    } catch (SAXException e) {
+                                        e.printStackTrace();
+                                    }
+
+                                    String alphabet = new String();
+                                    Set<Integer> index = res.getIndexes();
+                                    for (Integer idx : index)
+                                        alphabet += String.valueOf(res.getByIndex(idx).getPayload());
+                                    String s = symbolicPatterns.get(patternId).getMeasures().get(measureName);
+                                    boolean match = false;
+                                    try {
+                                        match = patternMatch(alphabet, s, windows.getaAlphabet());
+                                    } catch (SAXException e) {
+                                        e.printStackTrace();
+                                    }
+
+                                    mPattern.put("user_id", user);
+                                    mPattern.put("timestamp", value.getTimestamp());
+
+                                    patternResult result = new patternResult();
+
+                                    if (match == true) {
+                                        list.removeAll(list);
+                                        result.put("模式" + patternId, 0);
+                                        mPattern.put("measures", result);
+                                    } else {
+                                        result.put("模式" + patternId, 1);
+                                        mPattern.put("measures", result);
+                                    }
+                                }
                             }
                         }
                     }
@@ -313,10 +310,10 @@ public class PatternMatch {
 //                        tsRed[i] = List1.get(i);
 //
 //                    //将一维序列通过SAX算法转换，返回SAX记录值
-//                    SAXAnalysisWindow window = new SAXAnalysisWindow(64,8,4);
-//                    int slidingWindowSize = window.getnLength();
-//                    int paaSize = window.getwSegment();
-//                    int alphabetSize = window.getaAlphabet();
+//                    SAXAnalysisWindow windows = new SAXAnalysisWindow(64,8,4);
+//                    int slidingWindowSize = windows.getnLength();
+//                    int paaSize = windows.getwSegment();
+//                    int alphabetSize = windows.getaAlphabet();
 //                    //NONE 是所有，没有省略
 //                    NumerosityReductionStrategy nrStrategy = NumerosityReductionStrategy.NONE;
 //                    int nThreshold = 1;
@@ -351,10 +348,6 @@ public class PatternMatch {
 //                    //返回值是0或1，不能用int型，因为特殊格式转int会报错
 //                });
 
-
-        //结果写入到一个topic中
-        //key-value的形式，key是user_id，value是avro的格式，avro里有个map，map存放pattern和对应的pattern的0或者1
-        //value也可以是string的形式，直接是模式id+0或1，然后opentsdb那边再解析
 
         final KafkaStreams streams = new KafkaStreams(builder, streamsConfiguration);
 
