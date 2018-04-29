@@ -12,9 +12,7 @@ import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsConfig;
-import org.apache.kafka.streams.kstream.JoinWindows;
-import org.apache.kafka.streams.kstream.KStream;
-import org.apache.kafka.streams.kstream.KStreamBuilder;
+import org.apache.kafka.streams.kstream.*;
 import org.mhealth.open.data.avro.MEvent;
 import org.mhealth.open.data.avro.MPattern;
 import org.mhealth.open.data.avro.Measure;
@@ -36,15 +34,13 @@ public class PatternMatch {
      * SAXAnalysisWindow是SAX分析窗口，包含三个参数：长度、段数和字母表数
      */
     private List<SymbolicPattern> symbolicPatterns;
-    private String patternid;               //模式有可能是中文，所以改成模式的编号
     private SAXAnalysisWindow windows;
 
 
     //alt+insert是构造器和get、set方法的快捷键，点第一个然后按shift点最后一个是全选
-    public PatternMatch(List<SymbolicPattern> symbolicPatterns, String patternid, SAXAnalysisWindow window) {
+    public PatternMatch(List<SymbolicPattern> symbolicPatterns, SAXAnalysisWindow windows) {
         this.symbolicPatterns = symbolicPatterns;
-        this.patternid = patternid;
-        this.windows = window;
+        this.windows = windows;
     }
     public List<SymbolicPattern> getSymbolicPatterns() {
         return symbolicPatterns;
@@ -52,18 +48,13 @@ public class PatternMatch {
     public void setSymbolicPatterns(List<SymbolicPattern> symbolicPatterns) {
         this.symbolicPatterns = symbolicPatterns;
     }
-    public String getPatternid() {
-        return patternid;
-    }
-    public void setPatternid(String patternid) {
-        this.patternid = patternid;
-    }
     public SAXAnalysisWindow getWindows() {
         return windows;
     }
     public void setWindows(SAXAnalysisWindow windows) {
         this.windows = windows;
     }
+
 
 
     public void runKStream() {
@@ -85,12 +76,15 @@ public class PatternMatch {
 
 
         List<String> users = new ArrayList<>();             //用户数是从前台传进来的
+        users.add("the-user-1");
+        users.add("the-user-2");
+        users.add("the-user-3");
 
         Set<String> mk = new HashSet<>(symbolicPatterns.get(0).getMeasures().keySet());     // mk是measures的集合
         List<String> measures = new ArrayList<>(mk);        // measures集合里存的是维度
 
         KStreamBuilder builder = new KStreamBuilder();
-        KStream<String, MEvent> kStream = builder.stream(Serdes.String(), mEventSerde, judgeTopic(measures.get(0)));
+        KStream<String, MEvent> kStream ;
 
 /**
  * join是基于key的，KStream需要指定时间窗口，会把时间窗口内的数据存起来等待两边KStream做join操作（因为到来的数据时间不
@@ -167,6 +161,7 @@ public class PatternMatch {
                 }
             }
         } else {
+            kStream = builder.stream(Serdes.String(), mEventSerde, judgeTopic(measures.get(0)));
             if (measures.size() > 0) {
                 for (String measure : measures) {
                     KStream<String, MEvent> tempKStream = builder.stream(Serdes.String(), mEventSerde, judgeTopic(measure));
@@ -210,6 +205,7 @@ public class PatternMatch {
             }
 
         }
+        kStream.print();
 
 
         int length = symbolicPatterns.get(0).getLength();
@@ -223,23 +219,24 @@ public class PatternMatch {
         Set<String> set = symbolicPatterns.get(0).getMeasures().keySet();
         List<String> mList = new ArrayList<>(set);      //维度的集合
 
-        KStream<String, MPattern> kStream1 = kStream
-                .map((key, value) -> {
-                    MPattern mPattern = new MPattern();
-                    for (String user : users) {              //用户数
-                        for (int patternId = 0; patternId < symbolicPatterns.size(); patternId++) {    //模式数
-                            for (String measureName : mList) {          //measures的种数
-                                List<Float> list = new ArrayList<>();
-                                double[] tsRed = new double[length];
-                                if (value.getUserId().equals(user)) {
+        KTable<Windowed<String>, MPattern> matchPatternKTable = kStream
+                .map((key, value) -> KeyValue.pair(value.getUserId(), value))
+                .groupByKey()
+                .aggregate(
+                        () -> new MPattern(),
+                        (aggKey, newValue, mPattern) -> {
+                            for (int patternId = 0; patternId < symbolicPatterns.size(); patternId++) {    //模式数
+                                for (String measureName : mList) {          //measures的种数
+                                    List<Float> list = new ArrayList<>();
+                                    double[] tsRed = new double[length];
                                     while (list.size() < length - 1) {
-                                        list.add(value.getMeasures().get(measureName).getValue());
+                                        list.add(newValue.getMeasures().get(measureName).getValue());
                                     }
                                     if (list.size() >= length) {
                                         list.remove(0);
-                                        list.add(value.getMeasures().get(measureName).getValue());
+                                        list.add(newValue.getMeasures().get(measureName).getValue());
                                     } else
-                                        list.add(value.getMeasures().get(measureName).getValue());
+                                        list.add(newValue.getMeasures().get(measureName).getValue());
 
                                     for (int m = 0; m < length; m++)
                                         tsRed[m] = list.get(m);
@@ -273,8 +270,8 @@ public class PatternMatch {
                                         e.printStackTrace();
                                     }
 
-                                    mPattern.put("user_id", user);
-                                    mPattern.put("timestamp", value.getTimestamp());
+                                    mPattern.put("user_id", newValue.getUserId());
+                                    mPattern.put("timestamp", newValue.getTimestamp());
 
                                     patternResult result = new patternResult();
 
@@ -288,11 +285,12 @@ public class PatternMatch {
                                     }
                                 }
                             }
-                        }
-                    }
-                    return KeyValue.pair(key, mPattern);
-                });
+                            return mPattern;
+                        },
+                        TimeWindows.of(120 * 1000L),
+                        mPatternSerde);
 
+        matchPatternKTable.print();
 
 
 //                .map((key, value) -> {
