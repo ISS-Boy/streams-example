@@ -166,13 +166,13 @@ public class Demo1 {
 
         KStreamBuilder builder = new KStreamBuilder();
 
-        int length = 66;
-
-        KStream<String, MEvent> mEventKStream1 = builder.stream(Serdes.String(),mEventSerde,TOPIC1);
-        KStream<String, MEvent> mEventKStream2 = builder.stream(Serdes.String(),mEventSerde,TOPIC2);
-        KStream<String, MEvent> mEventKStream3 = builder.stream(Serdes.String(),mEventSerde,TOPIC3);
-        KStream<String, MEvent> mEventKStream4 = builder.stream(Serdes.String(),mEventSerde,TOPIC4);
-        mEventKStream4.print();
+//        int length = 66;
+//
+//        KStream<String, MEvent> mEventKStream1 = builder.stream(Serdes.String(),mEventSerde,TOPIC1);
+//        KStream<String, MEvent> mEventKStream2 = builder.stream(Serdes.String(),mEventSerde,TOPIC2);
+//        KStream<String, MEvent> mEventKStream3 = builder.stream(Serdes.String(),mEventSerde,TOPIC3);
+//        KStream<String, MEvent> mEventKStream4 = builder.stream(Serdes.String(),mEventSerde,TOPIC4);
+//        mEventKStream4.print();
 
 /*        List<Float> List1 = new ArrayList<>();
         List<Float> List2 = new ArrayList<>();
@@ -359,13 +359,13 @@ public class Demo1 {
                 ).print();*/
 
 
-/*        //①：单类体征数据数值上的条件定义，比如血压超过某个指定阈值触发警告
+        //①：单类体征数据数值上的条件定义，比如血压超过某个指定阈值触发警告
         KStream<String, MEvent> mEventKStream = builder.stream(Serdes.String(),mEventSerde,TOPIC1);
         KStream<String, MEvent> mEventStream = mEventKStream
                 .filter((key , value) -> value.getMeasures().get("systolic_blood_pressure").getValue() > 130
                         || value.getMeasures().get("diastolic_blood_pressure").getValue() > 80);
         mEventStream.print();
-        System.out.println("running");*/
+        System.out.println("running");
 
 
         //②：多类体征数据数值上的条件定义，比如血压和心率同时超过各自的阈值触发警告

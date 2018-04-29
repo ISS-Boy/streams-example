@@ -76,9 +76,8 @@ public class PatternMatch {
 
 
         List<String> users = new ArrayList<>();             //用户数是从前台传进来的
-        users.add("the-user-1");
-        users.add("the-user-2");
-        users.add("the-user-3");
+        users.add("the-user-9188");
+        users.add("the-user-1681");
 
         Set<String> mk = new HashSet<>(symbolicPatterns.get(0).getMeasures().keySet());     // mk是measures的集合
         List<String> measures = new ArrayList<>(mk);        // measures集合里存的是维度
@@ -93,7 +92,7 @@ public class PatternMatch {
   */
         if (mk.contains("systolic_blood_pressure") && mk.contains("diastolic_blood_pressure")) {
             kStream = builder.stream(Serdes.String(), mEventSerde, ParaConfig.TOPIC1);
-            kStream
+            kStream = kStream
                     .filter((key, value) -> {
                         boolean flag = false;
                         for (String user : users) {
