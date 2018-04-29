@@ -22,45 +22,49 @@ import org.mhealth.open.data.avro.patternResult;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-
+/**
+ * Created with IDEA
+ * User : ZhangBo
+ * Date : 2018/4/29
+ */
 public class PatternMatch {
 
-    private List<SymbolicPattern> symbolicPatterns;     //key是measure名字，value是模式字符串
+    /**
+     * SymbolicPattern对象有两个成员，一个是length，一个是Map<String, String> measures(key是measure的名字，value是对应的符号模式)
+     * symbolicPatterns这个list的长度如果为10，就代表指定了10个模式，每个SymbolicPattern的Map里可以指定多种measures
+     * patternid是模式编号，不过好像没用到
+     * SAXAnalysisWindow是SAX分析窗口，包含三个参数：长度、段数和字母表数
+     */
+    private List<SymbolicPattern> symbolicPatterns;
     private String patternid;               //模式有可能是中文，所以改成模式的编号
     private SAXAnalysisWindow window;
 
-    //alt+insert是构造器和get、set方法的快捷键，点第一个然后按shift点最后一个
 
-
+    //alt+insert是构造器和get、set方法的快捷键，点第一个然后按shift点最后一个是全选
     public PatternMatch(List<SymbolicPattern> symbolicPatterns, String patternid, SAXAnalysisWindow window) {
         this.symbolicPatterns = symbolicPatterns;
         this.patternid = patternid;
         this.window = window;
     }
-
     public List<SymbolicPattern> getSymbolicPatterns() {
         return symbolicPatterns;
     }
-
     public void setSymbolicPatterns(List<SymbolicPattern> symbolicPatterns) {
         this.symbolicPatterns = symbolicPatterns;
     }
-
     public String getPatternid() {
         return patternid;
     }
-
     public void setPatternid(String patternid) {
         this.patternid = patternid;
     }
-
     public SAXAnalysisWindow getWindow() {
         return window;
     }
-
     public void setWindow(SAXAnalysisWindow window) {
         this.window = window;
     }
+
 
     public void runKStream() {
         final Properties streamsConfiguration = new Properties();
@@ -81,14 +85,17 @@ public class PatternMatch {
 
 
         List<String> users = new ArrayList<>();             //用户数是从前台传进来的
+
+        Set<String> mk = new HashSet<>(symbolicPatterns.get(0).getMeasures().keySet());     // mk是measures的集合
+        List<String> measures = new ArrayList<>(mk);        // measures集合里存的是维度
+
         KStreamBuilder builder = new KStreamBuilder();
-        Set<String> mk = new HashSet<>(symbolicPatterns.get(0).getMeasures().keySet());
-        List<String> measures = new ArrayList<>(mk);        //measures集合里存的是维度
         KStream<String, MEvent> kStream = builder.stream(Serdes.String(), mEventSerde, judgeTopic(measures.get(0)));
 
 /**
- * join是基于key的，如果只是按user_id进行join，结果是笛卡尔积，是多对多的关系，所以在 join 之前需要先 map 成
- * user_id + timestamp，成一对一的关系
+ * join是基于key的，KStream需要指定时间窗口，会把时间窗口内的数据存起来等待两边KStream做join操作（因为到来的数据时间不
+ * 一定完全对齐，所以需要等待），如果只是按user_id进行join，结果是笛卡尔积，是多对多的关系，所以在join之前需要先map成
+ * user_id + timestamp，成一对一的关系，按新的key进行join
   */
         if (mk.contains("systolic_blood_pressure") && mk.contains("diastolic_blood_pressure")) {
             kStream = builder.stream(Serdes.String(), mEventSerde, ParaConfig.TOPIC1);
@@ -156,7 +163,7 @@ public class PatternMatch {
                                         mEvent.put("measures", m2);
                                         return mEvent;
                                     },
-                                    JoinWindows.of(TimeUnit.MINUTES.toMillis(10)));//指定时间窗口，在指定的时间窗口内会等待相同的key进行匹配
+                                    JoinWindows.of(TimeUnit.MINUTES.toMillis(10)));//指定时间窗口，在指定的时间窗口内会等待相同key的数据进行匹配
                 }
             }
         } else {
@@ -171,7 +178,6 @@ public class PatternMatch {
                                 }
                                 return flag;
                             })
-//join是基于key的，如果只是按user_id进行join，结果是笛卡尔积，是多对多的关系，所以需要先map成id+timestamp，成一对一的关系
                             .map((key, value) -> KeyValue.pair(value.getUserId() + value.getTimestamp(), value))
                             .join(tempKStream
                                             .filter((key, value) -> {
@@ -206,11 +212,7 @@ public class PatternMatch {
         }
 
 
-        int length = 66;
-
-        List<Float> List1 = new ArrayList<>();
-        List<Float> List2 = new ArrayList<>();
-
+        int length = symbolicPatterns.get(0).getLength();
 /**
  *  最外层的Map的key-value是<user_id,模式的集合>，list的长度就是模式的种数
  *  中间的Map的key-value是<measure，存储数据的集合>，list的长度就是length

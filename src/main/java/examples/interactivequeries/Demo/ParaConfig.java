@@ -1,11 +1,11 @@
 package examples.interactivequeries.Demo;
 
-
 import io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig;
 
 import java.util.Collections;
 import java.util.Map;
 
+//kafka stream配置项放在这里
 public class ParaConfig {
     public static final String TOPIC1 = "blood-pressure";
     public static final String TOPIC2 = "heart-rate";
