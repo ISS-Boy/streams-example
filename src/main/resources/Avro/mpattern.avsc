@@ -17,9 +17,10 @@
         }
     ]
 }
+//把patternResult改成map型，后面再改，现在先搞个set，把5个measure值放进去，在aggregate里判断有哪些measure不在mList里，然后给初值
 
 /**
- * 最外层的Map的key-value是<user_id,measure的集合>，list的长度就是measure的种数
- * 中间的Map的key-value是，<存储数据的集合>，list的长度就是length
+ * 最外层的Map的key-value是<user_id,模式的集合>，list的长度就是模式的种数
+ * 中间的Map的key-value是<measure,存储数据的集合>，list的长度就是length
  * Map<String, List<Map<String, List<Float>>>> map = new HashMap<>();
  */

@@ -59,7 +59,7 @@ public class PatternMatch {
 
     public void runKStream() {
         final Properties streamsConfiguration = new Properties();
-        streamsConfiguration.put(StreamsConfig.APPLICATION_ID_CONFIG, "pattern_match18");//记得改这个，不然可能没数据
+        streamsConfiguration.put(StreamsConfig.APPLICATION_ID_CONFIG, "pattern_match19");//记得改这个，不然可能没数据
         streamsConfiguration.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, ParaConfig.bootstrapServers);
         streamsConfiguration.put(AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, ParaConfig.schemaRegistryUrl);
         streamsConfiguration.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
@@ -215,9 +215,26 @@ public class PatternMatch {
         Set<String> set = symbolicPatterns.get(0).getMeasures().keySet();
         List<String> mList = new ArrayList<>(set);      //维度的集合
 
-        List<List<Float>> lists = new ArrayList<>();
-        for(String m : mList)
-            lists.add(new ArrayList<Float>());
+
+
+        /**
+         * 最外层的Map的key-value是<user_id,模式的集合>，list的长度就是模式的种数
+         * 中间的Map的key-value是<measure,存储数据的集合>，list的长度就是length
+         */
+        Map<String, List<Map<String, List<Float>>>> usersMap = new HashMap<String, List<Map<String,List<Float>>>>();
+        for(String user : users){
+            List<Map<String, List<Float>>> pList = new ArrayList<Map<String, List<Float>>>();
+            for(int patternNo = 0,len = symbolicPatterns.size();patternNo < len; patternNo++){
+                Map<String, List<Float>> mMap = new HashMap<String, List<Float>>();
+                for (String measure : mList) {
+                    //List<Float> dataPoints = new ArrayList<>();
+                    mMap.put(measure, new ArrayList<Float>());
+                }
+                pList.add(mMap);
+            }
+            usersMap.put(user, pList);
+        }
+
 
         KTable<Windowed<String>, MPattern> matchPatternKTable = kStream
                 .map((key, value) -> KeyValue.pair(value.getUserId(), value))
@@ -225,24 +242,25 @@ public class PatternMatch {
                 .aggregate(
                         () -> new MPattern(),
                         (aggKey, newValue, mPattern) -> {
-                            for (String measureName : mList) {          //measures的种数
-                                int list_index = 0;
-                                for (int patternId = 0; patternId < symbolicPatterns.size(); patternId++) {    //模式数
+                            for (int patternId = 0; patternId < symbolicPatterns.size(); patternId++) {    //模式数
+                                for (String measureName : mList) {          //measures的种数
                                     int length = symbolicPatterns.get(patternId).getLength();
 
                                     double[] tsRed = new double[length];
-                                    while (lists.get(list_index).size() < length - 1) {
-                                        lists.get(list_index).add(newValue.getMeasures().get(measureName).getValue());
-                                    }
-                                    while(lists.get(list_index).size() > length - 1){
-                                        lists.get(list_index).remove(0);
-                                    }
-                                    List<Float> list = lists.get(list_index);
-                                    if (list.size() >= length) {
+
+                                    List<Float> list = usersMap.get(newValue.getUserId()).get(patternId).get(measureName);
+                                    if (list.size() > length) {
                                         list.remove(0);
                                         list.add(newValue.getMeasures().get(measureName).getValue());
-                                    } else
+                                    } else if (list.size() < length-1) {
                                         list.add(newValue.getMeasures().get(measureName).getValue());
+                                        patternResult result = new patternResult();
+                                        result.put("" + measureName, -1);//还要把几个没出现的measure设初值-1
+                                        Map map1 = new HashMap();
+                                        map1.put("模式" + patternId, result);
+                                        mPattern.put("matchPattern", map1);
+                                        continue;
+                                    }
 
                                     for (int m = 0; m < length; m++)
                                         tsRed[m] = list.get(m);
@@ -251,7 +269,7 @@ public class PatternMatch {
                                     //将一维序列通过SAX算法转换，返回SAX记录值
                                     //NONE 是所有，没有省略
                                     NumerosityReductionStrategy nrStrategy = NumerosityReductionStrategy.NONE;
-                                    int nThreshold = 1;
+                                    double nThreshold = 0.01;
 
                                     NormalAlphabet na = new NormalAlphabet();
                                     SAXProcessor sp = new SAXProcessor();
@@ -283,17 +301,16 @@ public class PatternMatch {
                                     Map map1 = new HashMap();
 
                                     if (match) {
-                                        lists.get(list_index).removeAll(lists.get(list_index));
+                                        list.removeAll(list);
                                         result.put("" + measureName, 0);
-                                    }else{
-                                        result.put("" + measureName,1);
+                                    } else {
+                                        result.put("" + measureName, 1);
                                     }
 
-                                    if(mPattern.getMatchPattern() != null) {
+                                    if (mPattern.getMatchPattern() != null) {
                                         mPattern.getMatchPattern().put("模式" + patternId, result);
                                         mPattern.put("matchPattern", mPattern.getMatchPattern());
-                                    }
-                                    else {
+                                    } else {
                                         map1.put("模式" + patternId, result);
                                         mPattern.put("matchPattern", map1);
                                     }
