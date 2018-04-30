@@ -59,12 +59,12 @@ public class PatternMatch {
 
     public void runKStream() {
         final Properties streamsConfiguration = new Properties();
-        streamsConfiguration.put(StreamsConfig.APPLICATION_ID_CONFIG, "pattern_match");
+        streamsConfiguration.put(StreamsConfig.APPLICATION_ID_CONFIG, "pattern_match18");//记得改这个，不然可能没数据
         streamsConfiguration.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, ParaConfig.bootstrapServers);
         streamsConfiguration.put(AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, ParaConfig.schemaRegistryUrl);
         streamsConfiguration.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
         streamsConfiguration.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, SpecificAvroSerde.class);
-        streamsConfiguration.put(StreamsConfig.NUM_STREAM_THREADS_CONFIG, 5);
+        streamsConfiguration.put(StreamsConfig.NUM_STREAM_THREADS_CONFIG, 1);
         streamsConfiguration.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         streamsConfiguration.put(StreamsConfig.COMMIT_INTERVAL_MS_CONFIG, 10 * 1000);
 
@@ -107,11 +107,13 @@ public class PatternMatch {
                         Measure m2 = new Measure();
                         m2.put("unit", "mmHg");
                         m2.put("value", value.getMeasures().get("diastolic_blood_pressure").getValue());
+                        Map map = new HashMap();
+                        map.put("systolic_blood_pressure",m1);
+                        map.put("diastolic_blood_pressure",m2);
                         MEvent m = new MEvent();
                         m.put("user_id", value.getUserId());
                         m.put("timestamp", value.getTimestamp());
-                        m.put("measures", m1);
-                        m.put("measures", m2);
+                        m.put("measures", map);
                         return m;
                     });
             mk.remove("systolic_blood_pressure");
@@ -144,16 +146,18 @@ public class PatternMatch {
                                         MEvent mEvent = new MEvent();
                                         mEvent.put("user_id", leftValue.getUserId());
                                         mEvent.put("timestamp", leftValue.getTimestamp());
+                                        Map map = new HashMap();
                                         for (String mkey : leftValue.getMeasures().keySet()) {
                                             Measure m = new Measure();
                                             m.put("unit", judgeUnit(mkey));
                                             m.put("value", rightValue.getMeasures().get(mkey).getValue());
-                                            mEvent.put("measures", m);
+                                            map.put(mkey,m);
                                         }
                                         Measure m2 = new Measure();
                                         m2.put("unit", judgeUnit(measure));
                                         m2.put("value", rightValue.getMeasures().get(measure).getValue());
-                                        mEvent.put("measures", m2);
+                                        map.put(measure,m2);
+                                        mEvent.put("measures", map);
                                         return mEvent;
                                     },
                                     JoinWindows.of(TimeUnit.MINUTES.toMillis(10)));//指定时间窗口，在指定的时间窗口内会等待相同key的数据进行匹配
@@ -187,16 +191,18 @@ public class PatternMatch {
                                         MEvent mEvent = new MEvent();
                                         mEvent.put("user_id", leftValue.getUserId());
                                         mEvent.put("timestamp", leftValue.getTimestamp());
+                                        Map map = new HashMap();
                                         for (String mkey : leftValue.getMeasures().keySet()) {
                                             Measure m = new Measure();
                                             m.put("unit", judgeUnit(mkey));
                                             m.put("value", rightValue.getMeasures().get(mkey).getValue());
-                                            mEvent.put("measures", m);
+                                            map.put(mkey,m);
                                         }
                                         Measure m2 = new Measure();
                                         m2.put("unit", judgeUnit(measure));
                                         m2.put("value", rightValue.getMeasures().get(measure).getValue());
-                                        mEvent.put("measures", m2);
+                                        map.put(measure,m2);
+                                        mEvent.put("measures", map);
                                         return mEvent;
                                     },
                                     JoinWindows.of(TimeUnit.MINUTES.toMillis(10)));//指定时间窗口，在指定的时间窗口内会等待相同的key进行匹配
@@ -204,19 +210,14 @@ public class PatternMatch {
             }
 
         }
-        kStream.print();
-
-
-        int length = symbolicPatterns.get(0).getLength();
-/**
- *  最外层的Map的key-value是<user_id,模式的集合>，list的长度就是模式的种数
- *  中间的Map的key-value是<measure，存储数据的集合>，list的长度就是length
- */
-        Map<String, List<Map<String, List<Float>>>> map = new HashMap<>();
 
 
         Set<String> set = symbolicPatterns.get(0).getMeasures().keySet();
         List<String> mList = new ArrayList<>(set);      //维度的集合
+
+        List<List<Float>> lists = new ArrayList<>();
+        for(String m : mList)
+            lists.add(new ArrayList<Float>());
 
         KTable<Windowed<String>, MPattern> matchPatternKTable = kStream
                 .map((key, value) -> KeyValue.pair(value.getUserId(), value))
@@ -224,13 +225,19 @@ public class PatternMatch {
                 .aggregate(
                         () -> new MPattern(),
                         (aggKey, newValue, mPattern) -> {
-                            for (int patternId = 0; patternId < symbolicPatterns.size(); patternId++) {    //模式数
-                                for (String measureName : mList) {          //measures的种数
-                                    List<Float> list = new ArrayList<>();
+                            for (String measureName : mList) {          //measures的种数
+                                int list_index = 0;
+                                for (int patternId = 0; patternId < symbolicPatterns.size(); patternId++) {    //模式数
+                                    int length = symbolicPatterns.get(patternId).getLength();
+
                                     double[] tsRed = new double[length];
-                                    while (list.size() < length - 1) {
-                                        list.add(newValue.getMeasures().get(measureName).getValue());
+                                    while (lists.get(list_index).size() < length - 1) {
+                                        lists.get(list_index).add(newValue.getMeasures().get(measureName).getValue());
                                     }
+                                    while(lists.get(list_index).size() > length - 1){
+                                        lists.get(list_index).remove(0);
+                                    }
+                                    List<Float> list = lists.get(list_index);
                                     if (list.size() >= length) {
                                         list.remove(0);
                                         list.add(newValue.getMeasures().get(measureName).getValue());
@@ -257,14 +264,14 @@ public class PatternMatch {
                                         e.printStackTrace();
                                     }
 
-                                    String alphabet = new String();
+                                    StringBuffer alphabet = new StringBuffer();
                                     Set<Integer> index = res.getIndexes();
                                     for (Integer idx : index)
-                                        alphabet += String.valueOf(res.getByIndex(idx).getPayload());
+                                        alphabet.append(String.valueOf(res.getByIndex(idx).getPayload()));
                                     String s = symbolicPatterns.get(patternId).getMeasures().get(measureName);
                                     boolean match = false;
                                     try {
-                                        match = patternMatch(alphabet, s, windows.getaAlphabet());
+                                        match = patternMatch(alphabet.toString(), s, windows.getaAlphabet());
                                     } catch (SAXException e) {
                                         e.printStackTrace();
                                     }
@@ -273,86 +280,45 @@ public class PatternMatch {
                                     mPattern.put("timestamp", newValue.getTimestamp());
 
                                     patternResult result = new patternResult();
+                                    Map map1 = new HashMap();
 
-                                    if (match == true) {
-                                        list.removeAll(list);
-                                        result.put("模式" + patternId, 0);
-                                        mPattern.put("measures", result);
-                                    } else {
-                                        result.put("模式" + patternId, 1);
-                                        mPattern.put("measures", result);
+                                    if (match) {
+                                        lists.get(list_index).removeAll(lists.get(list_index));
+                                        result.put("" + measureName, 0);
+                                    }else{
+                                        result.put("" + measureName,1);
+                                    }
+
+                                    if(mPattern.getMatchPattern() != null) {
+                                        mPattern.getMatchPattern().put("模式" + patternId, result);
+                                        mPattern.put("matchPattern", mPattern.getMatchPattern());
+                                    }
+                                    else {
+                                        map1.put("模式" + patternId, result);
+                                        mPattern.put("matchPattern", map1);
                                     }
                                 }
                             }
                             return mPattern;
                         },
-                        TimeWindows.of(120 * 1000L),
+                        TimeWindows.of(60 * 60 * 1000L),
                         mPatternSerde);
-
         matchPatternKTable.print();
 
-
-//                .map((key, value) -> {
-//                    while(List1.size()<length-1){
-//                        List1.add(value.getMeasures().get("systolic_blood_pressure").getValue());
-//                    }
-//                    if(List1.size() >= length) {
-//                        List1.remove(0);
-//                        List1.add(value.getMeasures().get("systolic_blood_pressure").getValue());
-//                    }
-//                    else
-//                        List1.add(value.getMeasures().get("systolic_blood_pressure").getValue());
-//                    double[] tsRed = new double[length];
-//                    for(int i=0;i<length;i++)
-//                        tsRed[i] = List1.get(i);
-//
-//                    //将一维序列通过SAX算法转换，返回SAX记录值
-//                    SAXAnalysisWindow windows = new SAXAnalysisWindow(64,8,4);
-//                    int slidingWindowSize = windows.getnLength();
-//                    int paaSize = windows.getwSegment();
-//                    int alphabetSize = windows.getaAlphabet();
-//                    //NONE 是所有，没有省略
-//                    NumerosityReductionStrategy nrStrategy = NumerosityReductionStrategy.NONE;
-//                    int nThreshold = 1;
-//
-//                    NormalAlphabet na = new NormalAlphabet();
-//                    SAXProcessor sp = new SAXProcessor();
-//
-//                    SAXRecords res = null;
-//                    try {
-//                        res = sp.ts2saxViaWindow(tsRed, slidingWindowSize, paaSize,
-//                                na.getCuts(alphabetSize), nrStrategy, nThreshold);
-//                    } catch (SAXException e) {
-//                        e.printStackTrace();
-//                    }
-//
-//                    String alphabet = new String();
-//                    Set<Integer> index = res.getIndexes();
-//                    for (Integer idx : index)
-//                        alphabet += String.valueOf(res.getByIndex(idx).getPayload());
-//                    String s = "bbbbccccbbbbccccbbbbcccc";
-//                    boolean match = false;
-//                    try {
-//                        match = patternMatch(alphabet,s,alphabetSize);
-//                    } catch (SAXException e) {
-//                        e.printStackTrace();
-//                    }
-//                    if(match == true) {
-//                        List1.removeAll(List1);
-//                        return KeyValue.pair(value.getUserId(), "1");
-//                    } else
-//                        return KeyValue.pair(value.getUserId(), "0");
-//                    //返回值是0或1，不能用int型，因为特殊格式转int会报错
+//        matchPatternKTable
+//                .mapValues(value -> {
+//                    boolean flag = true;
+//                   for(String m : mList){
+//                        value.getMatchPattern().
+//                   }
 //                });
-
 
         final KafkaStreams streams = new KafkaStreams(builder, streamsConfiguration);
 
         streams.cleanUp();
         streams.start();
 
-        Runtime.getRuntime().
-                addShutdownHook(new Thread(streams::close));
+        Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
     }
 
     private String judgeTopic(String measure) {

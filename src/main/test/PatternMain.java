@@ -1,6 +1,7 @@
 import examples.interactivequeries.Demo.PatternMatch;
 import examples.interactivequeries.Demo.SAXAnalysisWindow;
 import examples.interactivequeries.Demo.SymbolicPattern;
+import org.apache.kafka.streams.KafkaStreams;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -26,14 +27,14 @@ public class PatternMain {
 
 
         SymbolicPattern sp1 = new SymbolicPattern(map1,70);
-        SymbolicPattern sp2 = new SymbolicPattern(map2,69);
-        SymbolicPattern sp3 = new SymbolicPattern(map3,69);
+//        SymbolicPattern sp2 = new SymbolicPattern(map2,69);
+//        SymbolicPattern sp3 = new SymbolicPattern(map3,69);
         SymbolicPattern sp4 = new SymbolicPattern(map4,70);
 
         List<SymbolicPattern> symbolicPatterns = new ArrayList<>();
         symbolicPatterns.add(sp1);
-        symbolicPatterns.add(sp2);
-        symbolicPatterns.add(sp3);
+//        symbolicPatterns.add(sp2);
+//        symbolicPatterns.add(sp3);
         symbolicPatterns.add(sp4);
 
         SAXAnalysisWindow saxaw = new SAXAnalysisWindow();
@@ -44,6 +45,5 @@ public class PatternMain {
         PatternMatch patternMatch = new PatternMatch(symbolicPatterns,saxaw);
 
         patternMatch.runKStream();
-
     }
 }

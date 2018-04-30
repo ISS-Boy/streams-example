@@ -6,12 +6,20 @@
         {"name": "user_id", "type": ["string","null"] },
         {"name": "timestamp", "type": "long"},
         {"name": "matchPattern" ,"type": {
-            "type":"map","values":{"type":"record", "name": "patternResult", "fields":[
-                    {"name": "patternName", "type": "string"},
-                    {"name": "result", "type": "int"}
+            "type":"map","values":{"name": "patternResult", "type": "record","fields":[
+                    {"name": "systolic_blood_pressure" , "type": "int"},
+                    {"name": "diastolic_blood_pressure", "type": "int"},
+                    {"name": "heart_rate", "type": "int"},
+                    {"name": "body_temperature", "type": "int"},
+                    {"name": "step_count", "type": "int"}
                 ]}
             }
         }
     ]
 }
 
+/**
+ * 最外层的Map的key-value是<user_id,measure的集合>，list的长度就是measure的种数
+ * 中间的Map的key-value是，<存储数据的集合>，list的长度就是length
+ * Map<String, List<Map<String, List<Float>>>> map = new HashMap<>();
+ */
