@@ -13,10 +13,7 @@ import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.*;
-import org.mhealth.open.data.avro.MEvent;
-import org.mhealth.open.data.avro.MPattern;
-import org.mhealth.open.data.avro.Measure;
-import org.mhealth.open.data.avro.patternResult;
+import org.mhealth.open.data.avro.*;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -59,7 +56,7 @@ public class PatternMatch {
 
     public void runKStream() {
         final Properties streamsConfiguration = new Properties();
-        streamsConfiguration.put(StreamsConfig.APPLICATION_ID_CONFIG, "pattern_match19");//记得改这个，不然可能没数据
+        streamsConfiguration.put(StreamsConfig.APPLICATION_ID_CONFIG, "pattern_match22");//记得改这个，不然可能没数据
         streamsConfiguration.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, ParaConfig.bootstrapServers);
         streamsConfiguration.put(AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, ParaConfig.schemaRegistryUrl);
         streamsConfiguration.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
@@ -248,20 +245,24 @@ public class PatternMatch {
 
                                     double[] tsRed = new double[length];
 
-                                    List<Float> list = usersMap.get(newValue.getUserId()).get(patternId).get(measureName);
-                                    if (list.size() > length) {
-                                        list.remove(0);
-                                        list.add(newValue.getMeasures().get(measureName).getValue());
-                                    } else if (list.size() < length-1) {
-                                        list.add(newValue.getMeasures().get(measureName).getValue());
-                                        patternResult result = new patternResult();
-                                        result.put("" + measureName, -1);//还要把几个没出现的measure设初值-1
-                                        Map map1 = new HashMap();
-                                        map1.put("模式" + patternId, result);
-                                        mPattern.put("matchPattern", map1);
+                                    if (usersMap.get(newValue.getUserId()).get(patternId).get(measureName).size() >= length) {
+                                        usersMap.get(newValue.getUserId()).get(patternId).get(measureName).remove(0);
+                                        usersMap.get(newValue.getUserId()).get(patternId).get(measureName).add(newValue.getMeasures().get(measureName).getValue());
+                                    } else{
+                                        usersMap.get(newValue.getUserId()).get(patternId).get(measureName).add(newValue.getMeasures().get(measureName).getValue());
+                                        EndResult endResult = new EndResult();
+                                        endResult.setValue(99);
+                                        PatternResult patternResult = new PatternResult();
+                                        Map<String,EndResult> map1 = new HashMap();
+                                        Map<String,PatternResult> map2 = new HashMap();
+                                        map1.put("waiting", endResult);
+                                        patternResult.setResult(map1);
+                                        map2.put("waiting", patternResult);
+                                        mPattern.put("matchPattern", map2);
                                         continue;
                                     }
 
+                                    List<Float> list = usersMap.get(newValue.getUserId()).get(patternId).get(measureName);
                                     for (int m = 0; m < length; m++)
                                         tsRed[m] = list.get(m);
 
@@ -297,28 +298,37 @@ public class PatternMatch {
                                     mPattern.put("user_id", newValue.getUserId());
                                     mPattern.put("timestamp", newValue.getTimestamp());
 
-                                    patternResult result = new patternResult();
-                                    Map map1 = new HashMap();
+
+                                    EndResult endResult1 = new EndResult();
+                                    endResult1.setValue(0);             //0代表匹配成功
+                                    EndResult endResult2 = new EndResult();
+                                    endResult2.setValue(1);             //1代表匹配失败
+                                    PatternResult patternResult = new PatternResult();
+
+                                    Map<String,EndResult> map1 = new HashMap();
+                                    Map<String,PatternResult> map2 = new HashMap();
 
                                     if (match) {
                                         list.removeAll(list);
-                                        result.put("" + measureName, 0);
+                                        map1.put("" + measureName, endResult1);
+                                        patternResult.setResult(map1);
                                     } else {
-                                        result.put("" + measureName, 1);
+                                        map1.put("" + measureName, endResult2);
+                                        patternResult.setResult(map1);
                                     }
 
                                     if (mPattern.getMatchPattern() != null) {
-                                        mPattern.getMatchPattern().put("模式" + patternId, result);
+                                        mPattern.getMatchPattern().put("模式" + patternId, patternResult);    //如果之前有元素，要把元素都取出来一起放入新的
                                         mPattern.put("matchPattern", mPattern.getMatchPattern());
                                     } else {
-                                        map1.put("模式" + patternId, result);
-                                        mPattern.put("matchPattern", map1);
+                                        map2.put("模式" + patternId, patternResult);
+                                        mPattern.put("matchPattern", map2);
                                     }
                                 }
                             }
                             return mPattern;
                         },
-                        TimeWindows.of(60 * 60 * 1000L),
+                        TimeWindows.of(10),
                         mPatternSerde);
         matchPatternKTable.print();
 

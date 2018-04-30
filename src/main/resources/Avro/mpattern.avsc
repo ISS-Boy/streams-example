@@ -6,18 +6,19 @@
         {"name": "user_id", "type": ["string","null"] },
         {"name": "timestamp", "type": "long"},
         {"name": "matchPattern" ,"type": {
-            "type":"map","values":{"name": "patternResult", "type": "record","fields":[
-                    {"name": "systolic_blood_pressure" , "type": "int"},
-                    {"name": "diastolic_blood_pressure", "type": "int"},
-                    {"name": "heart_rate", "type": "int"},
-                    {"name": "body_temperature", "type": "int"},
-                    {"name": "step_count", "type": "int"}
+            "type":"map","values":{"name": "PatternResult", "type": "record","fields":[
+                    {"name": "Result","type": {
+                        "type":"map","values":{"name":"EndResult", "type": "record","fields":[
+                            {"name":"value", "type": "int"}
+                            ]}
+                        }
+                    }
                 ]}
             }
         }
     ]
 }
-//把patternResult改成map型，后面再改，现在先搞个set，把5个measure值放进去，在aggregate里判断有哪些measure不在mList里，然后给初值
+//Avro里面有个map，map里面又是Avro的格式，Avro里面又有个map，map里面又是Avro的格式
 
 /**
  * 最外层的Map的key-value是<user_id,模式的集合>，list的长度就是模式的种数

@@ -26,14 +26,14 @@ public class PatternMain {
         map4.put("diastolic_blood_pressure","abcbccccabcbccccbbccbccbbcbcccccacbccccbbcbbcccbbcbccccb");
 
 
-//        SymbolicPattern sp1 = new SymbolicPattern(map1,70);
-//        SymbolicPattern sp2 = new SymbolicPattern(map2,69);
+        SymbolicPattern sp1 = new SymbolicPattern(map1,70);
+        SymbolicPattern sp2 = new SymbolicPattern(map2,69);
         SymbolicPattern sp3 = new SymbolicPattern(map3,69);
         SymbolicPattern sp4 = new SymbolicPattern(map4,70);
 
         List<SymbolicPattern> symbolicPatterns = new ArrayList<>();
-//        symbolicPatterns.add(sp1);
-//        symbolicPatterns.add(sp2);
+        symbolicPatterns.add(sp1);
+        symbolicPatterns.add(sp2);
         symbolicPatterns.add(sp3);
         symbolicPatterns.add(sp4);
 
