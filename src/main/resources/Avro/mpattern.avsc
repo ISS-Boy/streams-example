@@ -31,7 +31,7 @@
  * "模式3": {"Result": {"systolic_blood_pressure": {"value": 1}, "diastolic_blood_pressure": {"value": 0}}},
  * "模式2": {"Result": {"systolic_blood_pressure": {"value": 1}, "diastolic_blood_pressure": {"value": 0}}}}}
  */
-
+//加个总的结果的字段
 
 /**
  * 最外层的Map的key-value是<user_id,模式的集合>，list的长度就是模式的种数

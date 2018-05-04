@@ -205,7 +205,6 @@ public class PatternMatch {
                                     JoinWindows.of(TimeUnit.MINUTES.toMillis(10)));//指定时间窗口，在指定的时间窗口内会等待相同的key进行匹配
                 }
             }
-
         }
 
 
@@ -218,10 +217,10 @@ public class PatternMatch {
          * 最外层的Map的key-value是<user_id,模式的集合>，list的长度就是模式的种数
          * 中间的Map的key-value是<measure,存储数据的集合>，list的长度就是length
          */
-        Map<String, List<Map<String, List<Float>>>> usersMap = new HashMap<String, List<Map<String,List<Float>>>>();
-        for(String user : users){
+        Map<String, List<Map<String, List<Float>>>> usersMap = new HashMap<String, List<Map<String, List<Float>>>>();
+        for (String user : users) {
             List<Map<String, List<Float>>> pList = new ArrayList<Map<String, List<Float>>>();
-            for(int patternNo = 0,len = symbolicPatterns.size();patternNo < len; patternNo++){
+            for (int patternNo = 0, len = symbolicPatterns.size(); patternNo < len; patternNo++) {
                 Map<String, List<Float>> mMap = new HashMap<String, List<Float>>();
                 for (String measure : mList) {
                     //List<Float> dataPoints = new ArrayList<>();
@@ -238,27 +237,27 @@ public class PatternMatch {
                 .groupByKey()
                 .aggregate(
                         () -> new MPattern(),
-                        (String aggKey, MEvent newValue, MPattern mPattern) -> {
+                        (String aggKey, MEvent Value, MPattern mPattern) -> {
                             for (int patternId = 0; patternId < symbolicPatterns.size(); patternId++) {    //模式数
                                 int length = symbolicPatterns.get(patternId).getLength();
                                 PatternResult patternResult = new PatternResult();
                                 for (String measureName : mList) {          //measures的种数
                                     double[] tsRed = new double[length];
 
-                                    if (usersMap.get(newValue.getUserId()).get(patternId).get(measureName).size() >= length) {
-                                        usersMap.get(newValue.getUserId()).get(patternId).get(measureName).remove(0);
-                                        usersMap.get(newValue.getUserId()).get(patternId).get(measureName)
-                                                .add(newValue.getMeasures().get(measureName).getValue());
-                                    } else if(usersMap.get(newValue.getUserId()).get(patternId).get(measureName).size() == length-1){
-                                        usersMap.get(newValue.getUserId()).get(patternId).get(measureName)
-                                                .add(newValue.getMeasures().get(measureName).getValue());
-                                    } else{
-                                        usersMap.get(newValue.getUserId()).get(patternId).get(measureName)
-                                                .add(newValue.getMeasures().get(measureName).getValue());
+                                    if (usersMap.get(Value.getUserId()).get(patternId).get(measureName).size() >= length) {
+                                        usersMap.get(Value.getUserId()).get(patternId).get(measureName).remove(0);
+                                        usersMap.get(Value.getUserId()).get(patternId).get(measureName)
+                                                .add(Value.getMeasures().get(measureName).getValue());
+                                    } else if (usersMap.get(Value.getUserId()).get(patternId).get(measureName).size() == length - 1) {
+                                        usersMap.get(Value.getUserId()).get(patternId).get(measureName)
+                                                .add(Value.getMeasures().get(measureName).getValue());
+                                    } else {
+                                        usersMap.get(Value.getUserId()).get(patternId).get(measureName)
+                                                .add(Value.getMeasures().get(measureName).getValue());
                                         EndResult endResult = new EndResult();
-                                        endResult.setValue(99);
-                                        Map<String,EndResult> map1 = new HashMap();
-                                        Map<String,PatternResult> map2 = new HashMap();
+                                        endResult.setValue(-1);
+                                        Map<String, EndResult> map1 = new HashMap();
+                                        Map<String, PatternResult> map2 = new HashMap();
                                         map1.put("waiting", endResult);
                                         patternResult.setResult(map1);
                                         map2.put("waiting", patternResult);
@@ -266,7 +265,7 @@ public class PatternMatch {
                                         continue;
                                     }
 
-                                    List<Float> list = usersMap.get(newValue.getUserId()).get(patternId).get(measureName);
+                                    List<Float> list = usersMap.get(Value.getUserId()).get(patternId).get(measureName);
                                     for (int m = 0; m < length; m++)
                                         tsRed[m] = list.get(m);
 
@@ -299,8 +298,8 @@ public class PatternMatch {
                                         e.printStackTrace();
                                     }
 
-                                    mPattern.put("user_id", newValue.getUserId());
-                                    mPattern.put("timestamp", newValue.getTimestamp());
+                                    mPattern.put("user_id", Value.getUserId());
+                                    mPattern.put("timestamp", Value.getTimestamp());
 
 
                                     EndResult endResult1 = new EndResult();
@@ -309,27 +308,25 @@ public class PatternMatch {
                                     endResult2.setValue(1);             //1代表匹配失败
 
 
-                                    Map<String,EndResult> map1 = new HashMap();
-                                    Map<String,PatternResult> map2 = new HashMap();
+                                    Map<String, EndResult> map1 = new HashMap();
+                                    Map<String, PatternResult> map2 = new HashMap();
 
                                     if (match) {
                                         list.removeAll(list);
-                                        usersMap.get(newValue.getUserId()).get(patternId).get(measureName)
-                                                .removeAll(usersMap.get(newValue.getUserId()).get(patternId).get(measureName));
-                                        if(patternResult.getResult() != null) {
+                                        usersMap.get(Value.getUserId()).get(patternId).get(measureName)
+                                                .removeAll(usersMap.get(Value.getUserId()).get(patternId).get(measureName));
+                                        if (patternResult.getResult() != null) {
                                             patternResult.getResult().put("" + measureName, endResult1);
                                             patternResult.setResult(patternResult.getResult());
-                                        }
-                                        else {
+                                        } else {
                                             map1.put("" + measureName, endResult2);
                                             patternResult.setResult(map1);
                                         }
                                     } else {
-                                        if(patternResult.getResult() != null) {
+                                        if (patternResult.getResult() != null) {
                                             patternResult.getResult().put("" + measureName, endResult1);
                                             patternResult.setResult(patternResult.getResult());
-                                        }
-                                        else {
+                                        } else {
                                             map1.put("" + measureName, endResult2);
                                             patternResult.setResult(map1);
                                         }
