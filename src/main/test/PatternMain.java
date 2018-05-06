@@ -12,6 +12,11 @@ public class PatternMain {
     public static void main(String[] args) {
 
 
+        List<String> users = new ArrayList<>();
+        users.add("the-user-9188");
+        users.add("the-user-1681");
+
+
         Map<String,String> map1 = new HashMap<>();
         map1.put("systolic_blood_pressure","ccbccbbbbcccbbbcccbcbbbcccccbbbcccbcbbbbcccdbbbbccccbbbb");
         map1.put("diastolic_blood_pressure","cccccbbbcccccbbbccccbbbbccccbbbbccccbbbbcccdbbbbcccdbbbb");
@@ -42,7 +47,7 @@ public class PatternMain {
         saxaw.setwSegment(8);
         saxaw.setaAlphabet(4);
 
-        PatternMatch patternMatch = new PatternMatch(symbolicPatterns,saxaw);
+        PatternMatch patternMatch = new PatternMatch(symbolicPatterns,saxaw,users);
 
         patternMatch.runKStream();
     }
