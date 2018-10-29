@@ -13,8 +13,8 @@ public class PatternMain {
 
 
         List<String> users = new ArrayList<>();
-        users.add("the-user-9188");
-        users.add("the-user-1681");
+        users.add("the-user-170");
+        users.add("the-user-3149");
 
 
         Map<String,String> map1 = new HashMap<>();

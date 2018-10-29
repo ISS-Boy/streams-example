@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit;
  * User : ZhangBo
  * Date : 2018/4/29
  */
-public class PatternMatch {
+public class PatternMatch{
 
     /**
      * SymbolicPattern对象有两个成员，一个是length，一个是Map<String, String> measures(key是measure的名字，value是对应的符号模式)
@@ -62,16 +62,15 @@ public class PatternMatch {
     }
 
 
-
     public void runKStream() {
         final Properties streamsConfiguration = new Properties();
-        streamsConfiguration.put(StreamsConfig.APPLICATION_ID_CONFIG, "pattern_match49");//记得改这个，不然可能没数据
+        streamsConfiguration.put(StreamsConfig.APPLICATION_ID_CONFIG, UUID.randomUUID().toString());//记得改这个，不然可能没数据
         streamsConfiguration.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, ParaConfig.bootstrapServers);
         streamsConfiguration.put(AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, ParaConfig.schemaRegistryUrl);
         streamsConfiguration.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
         streamsConfiguration.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, SpecificAvroSerde.class);
         streamsConfiguration.put(StreamsConfig.NUM_STREAM_THREADS_CONFIG, 5);
-        streamsConfiguration.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+        streamsConfiguration.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         streamsConfiguration.put(StreamsConfig.COMMIT_INTERVAL_MS_CONFIG, 10 * 1000);
 
         final SpecificAvroSerde<MEvent> mEventSerde = new SpecificAvroSerde<>();
@@ -156,7 +155,7 @@ public class PatternMatch {
                                         for (String mkey : leftValue.getMeasures().keySet()) {
                                             Measure m = new Measure();
                                             m.put("unit", judgeUnit(mkey));
-                                            m.put("value", rightValue.getMeasures().get(mkey).getValue());
+                                            m.put("value", leftValue.getMeasures().get(mkey).getValue());
                                             map.put(mkey,m);
                                         }
                                         Measure m2 = new Measure();
@@ -201,7 +200,7 @@ public class PatternMatch {
                                         for (String mkey : leftValue.getMeasures().keySet()) {
                                             Measure m = new Measure();
                                             m.put("unit", judgeUnit(mkey));
-                                            m.put("value", rightValue.getMeasures().get(mkey).getValue());
+                                            m.put("value", leftValue.getMeasures().get(mkey).getValue());
                                             map.put(mkey,m);
                                         }
                                         Measure m2 = new Measure();
@@ -258,10 +257,10 @@ public class PatternMatch {
                                 map1.put("final_result", endResult);
                                 patternResult.setResult(map1);
                                 if(mPattern.getMatchPattern() != null) {
-                                    mPattern.getMatchPattern().put("模式" + patternId, patternResult);
+                                    mPattern.getMatchPattern().put("pattern" + patternId, patternResult);
                                     mPattern.put("matchPattern", mPattern.getMatchPattern());
                                 }else{
-                                    map2.put("模式" + patternId, patternResult);
+                                    map2.put("pattern" + patternId, patternResult);
                                     mPattern.put("matchPattern", map2);
                                 }
                                 for (String measureName : mList) {          //measures的种数
@@ -317,8 +316,8 @@ public class PatternMatch {
                                     mPattern.put("timestamp", Value.getTimestamp());
 
                                     if (match) {
-                                        mPattern.getMatchPattern().get("模式" + patternId).getResult()
-                                                .get("final_result").setValue(mPattern.getMatchPattern().get("模式" + patternId).getResult()
+                                        mPattern.getMatchPattern().get("pattern" + patternId).getResult()
+                                                .get("final_result").setValue(mPattern.getMatchPattern().get("pattern" + patternId).getResult()
                                                 .get("final_result").getValue() + 1);
                                         list.removeAll(list);
                                         usersMap.get(Value.getUserId()).get(patternId).get(measureName)
@@ -326,12 +325,12 @@ public class PatternMatch {
                                     }
                                 }
 
-                                if(mPattern.getMatchPattern().get("模式" + patternId).getResult()
+                                if(mPattern.getMatchPattern().get("pattern" + patternId).getResult()
                                         .get("final_result").getValue() == mList.size()){
-                                    mPattern.getMatchPattern().get("模式" + patternId).getResult()
+                                    mPattern.getMatchPattern().get("pattern" + patternId).getResult()
                                             .get("final_result").setValue(1);   //1表示匹配成功
                                 }else{
-                                    mPattern.getMatchPattern().get("模式" + patternId).getResult()
+                                    mPattern.getMatchPattern().get("pattern" + patternId).getResult()
                                             .get("final_result").setValue(0);   //0表示不成功
                                 }
                             }
@@ -339,7 +338,8 @@ public class PatternMatch {
                         },
                         TimeWindows.of(60 * 1000), //等时间到了处理指定时间长度内的数据
                         mPatternSerde);
-        matchPatternKTable.to(windowedStringSerde, mPatternSerde, "matchpattern3");
+        matchPatternKTable.print();
+        //matchPatternKTable.to(windowedStringSerde, mPatternSerde, "matchpattern5");
 
 
         final KafkaStreams streams = new KafkaStreams(builder, streamsConfiguration);
@@ -388,4 +388,4 @@ public class PatternMatch {
         return true;
     }
 }
-//({"user_id": null, "timestamp": 0, "matchPattern": {"模式1": {"Result": {"final_result": {"value": 0}}}, "模式0": {"Result": {"final_result": {"value": 0}}}, "模式3": {"Result": {"final_result": {"value": 0}}}, "模式2": {"Result": {"final_result": {"value": 0}}}}})
+//({"user_id": null, "timestamp": 0, "matchPattern": {"pattern1": {"Result": {"final_result": {"value": 0}}}, "pattern0": {"Result": {"final_result": {"value": 0}}}, "pattern3": {"Result": {"final_result": {"value": 0}}}, "pattern2": {"Result": {"final_result": {"value": 0}}}}})

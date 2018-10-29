@@ -1,7 +1,5 @@
 package examples.interactivequeries.Demo;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroSerde;
-import kafka.admin.AdminUtils;
-import kafka.utils.ZkUtils;
 import net.seninp.jmotif.sax.NumerosityReductionStrategy;
 import net.seninp.jmotif.sax.SAXException;
 import net.seninp.jmotif.sax.SAXProcessor;
